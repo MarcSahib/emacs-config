@@ -141,12 +141,9 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(ansible ansible-doc ansible-snippets company-ansible dashboard evil
-	     flycheck forest-blue-theme jinja2-mode magit
-	     markdown-mode nov persp-mode projectile rebecca-theme
-	     spacemacs-theme tomorrow-night-deepblue-theme
-	     treemacs-all-the-icons treemacs-nerd-icons vterm
-	     yaml-mode)))
+   '(all-the-icons ansible ansible-doc company-ansible dashboard flycheck
+		   jinja2-mode magit markdown-mode nov rebecca-theme
+		   treemacs-nerd-icons vterm yaml-mode)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
