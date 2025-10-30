@@ -193,3 +193,18 @@
   :init
   (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
 
+;; Fast swtichting between windows and frames
+(use-package ace-window
+  :ensure t
+  :bind ("M-o" . ace-window))
+
+;; Delete with Backspace and DEL
+(delete-selection-mode 1)
+
+;; avy GoToChar
+(use-package avy
+  :ensure t
+  :bind
+  (("C-:" . avy-goto-char)
+   ("C-'" . avy-goto-char-2)
+   ("M-g g" . avy-goto-line)))
