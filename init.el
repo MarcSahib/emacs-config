@@ -32,19 +32,24 @@
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
 
-
+(setq default-frame-alist '((undecorated . t)))
  
 
 ;; ==============================================================
 ;; Theme
 ;; ==============================================================
-(use-package rebecca-theme
-  :config
-  (load-theme 'deeper-blue t)
-  (custom-set-faces
-   '(menu ((t (:background "#301a4b" :foreground "white"))))))
+(mapc #'disable-theme custom-enabled-themes)
+(load-theme 'deeper-blue t)
 
-
+(set-face-attribute 'mode-line nil
+                    :foreground "white"
+                    :background "darkblue"
+                    :box nil)
+(set-face-attribute 'mode-line-inactive nil
+                    :foreground "grey"
+                    :background "darkblue"
+                    :box nil)
+(add-to-list 'default-frame-alist '(undecorated . t))
 
 
 ;; ==============================================================
@@ -57,7 +62,7 @@
   (corfu-auto t)
   (corfu-preselect-first t)
   (corfu-cycle t))
-
+; Icons in corfu autocompletion
 (use-package kind-icon
   :after corfu
   :custom
@@ -208,9 +213,9 @@
   (interactive)
   (if (and (fboundp 'markdown-table-align)
            (markdown-table-at-point-p))
-      ;; In einer Markdown-Tabelle -> R++ckw+ñrts bewegen
+      ;; In einer Markdown-Tabelle -> Rückwärts bewegen
       (markdown-table-backward-cell)
-    ;; Sonst: Text nach links einr++cken
+    ;; Sonst: Text nach links einrücken
     (if (use-region-p)
         (indent-rigidly (region-beginning) (region-end) (- tab-width))
       (indent-rigidly (line-beginning-position) (line-end-position) (- tab-width)))))
