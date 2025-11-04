@@ -1,48 +1,225 @@
 ;; -*- lexical-binding: t; -*-
-(setq select-active-regions nil)     ; Make copy paste stable for windows 
-(setq inhibit-startup-message t)     ; No splash screen
-(setq initial-scratch-message nil)   ; No default message in scratch buffer
-(setq confirm-kill-emacs 'y-or-n-p)  ; Warn instead of closing Emacs
+
+;; ==============================================================
+;; Basics
+;; ==============================================================
+(setq inhibit-startup-message t)
+(setq initial-scratch-message nil)
+(setq confirm-kill-emacs 'y-or-n-p)
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
+
+;; ==============================================================
+;; Package Management
+;; ==============================================================
 (require 'package)
-
-;; Sources: GNU + MELPA
 (setq package-archives
-      '(("gnu"   . "https://elpa.gnu.org/packages/")
-	("melpa" . "https://melpa.org/packages/")))
+      '(("gnu" . "https://elpa.gnu.org/packages/")
+        ("melpa" . "https://melpa.org/packages/")))
 (package-initialize)
-
-;; If packet list is still empty, update
 (unless package-archive-contents
   (package-refresh-contents))
 
-;; Install vterm if its not installed already
-(unless (package-installed-p 'vterm)
-  (package-install 'vterm))
+;; use-package installieren falls fehlt
+(unless (package-installed-p 'use-package)
+  (package-install 'use-package))
+(require 'use-package)
+(setq use-package-always-ensure t)
 
-;; Load only if installed vterm
-(when (package-installed-p 'vterm)
-  (require 'vterm))
+;; ==============================================================
+;; No Menu- And Scroll-Bars
+;; ==============================================================
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
 
-(defun my-flash-mode-line ()
-  "Flash the mode line instead of ringing the bell."
-  (invert-face 'mode-line)
-  (run-with-timer 0.1 nil #'invert-face 'mode-line))
-(setq ring-bell-function #'my-flash-mode-line)
 
+ 
+
+;; ==============================================================
+;; Theme
+;; ==============================================================
+(use-package rebecca-theme
+  :config
+  (load-theme 'deeper-blue t)
+  (custom-set-faces
+   '(menu ((t (:background "#301a4b" :foreground "white"))))))
+
+
+
+
+;; ==============================================================
+;; Autocompletion
+;; ==============================================================
+(use-package corfu
+  :init
+  (global-corfu-mode)
+  :custom
+  (corfu-auto t)
+  (corfu-preselect-first t)
+  (corfu-cycle t))
+
+(use-package kind-icon
+  :after corfu
+  :custom
+  (kind-icon-default-face 'corfu-default)
+  :config
+  (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+
+;; ==============================================================
+;; LSP
+;; ==============================================================
+(use-package lsp-mode 
+  :commands lsp
+  :hook ((yaml-mode . lsp)
+         (json-mode . lsp)
+         (python-mode . lsp))  
+  :config
+  ;; Ansible LSP
+  (lsp-register-client
+   (make-lsp-client
+    :new-connection (lsp-stdio-connection '("ansible-language-server" "--stdio"))
+    :major-modes '(yaml-mode)
+    :server-id 'ansible-ls))
+  (setq lsp-log-io nil))
+
+
+
+;; ==============================================================
+;; YAML / Ansible
+;; ==============================================================
+(use-package yaml-mode
+  :mode "\\.ya?ml\\'")
+
+(use-package ansible-doc
+  :hook (yaml-mode . ansible-doc-mode))
+
+;; ==============================================================
+;; Markdown
+;; ==============================================================
+(use-package markdown-mode
+  :mode ("\\.md\\'" "\\.markdown\\'")
+  :init
+  (setq markdown-command "pandoc -f markdown -t html"))
+
+;; ==============================================================
+;; Jinja2
+;; ==============================================================
+(use-package jinja2-mode
+  :mode ("\\.j2\\'" . jinja2-mode))
+
+;; ==============================================================
+;; Linting
+;; ==============================================================
+(use-package flycheck
+  :init (global-flycheck-mode))
+
+(flycheck-define-checker ansible-lint
+  "A checker using ansible-lint."
+  :command ("ansible-lint" source-inplace)
+  :error-patterns ((error line-start (file-name) ":" line ": " (message) line-end))
+  :modes (yaml-mode))
+(add-to-list 'flycheck-checkers 'ansible-lint)
+
+;; ==============================================================
+;; Git
+;; ==============================================================
+(use-package magit
+  :bind (("C-x g" . magit-status)))
+
+;; ==============================================================
+;; Terminal
+;; ==============================================================
+(use-package vterm)
+
+;; ==============================================================
+;; Window Management
+;; ==============================================================
+(use-package ace-window
+  :bind (("M-o" . ace-window)))
+
+;; ==============================================================
+;; Kill Ring
+;; ==============================================================
+(use-package browse-kill-ring
+  :bind ("C-c k" . browse-kill-ring))
+
+;; ==============================================================
+;; Line numbers toggle
+;; ==============================================================
+(global-set-key (kbd "C-x C-l") #'display-line-numbers-mode)
+
+;;===============================================================
+;; Clipboard
+;;===============================================================
+(setq select-enable-clipboard t)
+;(setq select-enable-primary t)
+;(setq save-interprogram-paste-before-kill t)
+
+;; ==============================================================
 ;; Dashboard
+;; ==============================================================
 (use-package dashboard
   :ensure t
   :config
   (dashboard-setup-startup-hook)
   ;; Header text
   (setq dashboard-startup-banner 'official) ;; official, 0 = no banner
-  (setq dashboard-utems '((recents .5)      ;; last 5 opened files
-			  (projects .5)))   ;; Projects
-  (setq dashboard-set-heading-icons t)
-  (setq dashboard-set-file-icons t)
+  (setq dashboard-items '((recents . 5)      ;; last 5 opened files
+			  (projects . 5)))   ;; Projects
+  (setq dashboard-set-heading-icons nil)
+  (setq dashboard-set-file-icons nil)
 )
 
-;; === Terminal-only Treemacs für Rebecca-Theme ===
+;; ==============================================================
+;; Kill-Ring -> Windows Clipboard
+;; ==============================================================
+(defun copy-to-windows-clipboard (text)
+  "Copy TEXT to Windows clipboard via clip.exe."
+  (let ((process-connection-type nil))
+    (let ((proc (start-process "clip" nil "clip.exe")))
+      (process-send-string proc text)
+      (process-send-eof proc))))
+
+(defun my/copy-region-to-windows-clipboard-advice (&rest args)
+  "After kill-ring-save, copy region to Windows clipboard."
+  (let ((beg (nth 0 args))
+        (end (nth 1 args)))
+    (when (and beg end (use-region-p))
+      (copy-to-windows-clipboard (buffer-substring beg end)))))
+
+(advice-add 'kill-ring-save :after #'my/copy-region-to-windows-clipboard-advice)
+
+
+;; Mit Shift + TAB nach links
+(defun my-markdown-shifttab-indent-left ()
+  "Shift region or current line to the left in markdown-mode."
+  (interactive)
+  (if (use-region-p)
+      (indent-rigidly (region-beginning) (region-end) (- tab-width))
+    (indent-rigidly (line-beginning-position) (line-end-position) (- tab-width))))
+
+(with-eval-after-load 'markdown-mode
+  (define-key markdown-mode-map (kbd "<backtab>") #'my-markdown-shifttab-indent-left))
+
+
+;; Mit Shift + Tab nach links wenn in Markdown Table
+(defun my-markdown-shifttab-smart ()
+  "In markdown-mode: If inside a table, move backward; otherwise indent left."
+  (interactive)
+  (if (and (fboundp 'markdown-table-align)
+           (markdown-table-at-point-p))
+      ;; In einer Markdown-Tabelle -> R++ckw+ñrts bewegen
+      (markdown-table-backward-cell)
+    ;; Sonst: Text nach links einr++cken
+    (if (use-region-p)
+        (indent-rigidly (region-beginning) (region-end) (- tab-width))
+      (indent-rigidly (line-beginning-position) (line-end-position) (- tab-width)))))
+
+(with-eval-after-load 'markdown-mode
+  (define-key markdown-mode-map (kbd "<backtab>") #'my-markdown-shifttab-smart))
+
+
+;; Treemacs
 (use-package treemacs
   :ensure t)
 
@@ -52,159 +229,9 @@
   :config
   (treemacs-load-theme "nerd-icons"))
 
-;(treemacs-load-theme "all-the-icons")
 
-(setq modus-themes-common-palette-overrides
- ` ((accent-1 "#79a8ff")
-   (bg-active bg-main)
-   (bg-completion "#2f447f")
-   (bg-hover-secondary "#676E95")
-   (bg-line-number-active unspecified)
-   (bg-line-number-inactive "#292D3E")
-   (bg-main "#292D3E")
-   (bg-mode-line-active "#232635")
-   (bg-mode-line-inactive "#282c3d")
-   (bg-prompt unspecified)
-   (bg-prose-block-contents "#232635")
-   (bg-prose-block-delimiter bg-prose-block-contents)
-   (bg-region "#3C435E")
-   (bg-tab-bar      "#292D3E")
-   (bg-tab-current  bg-main)
-   (bg-tab-other    "#292D3E")
-   (border-mode-line-active nil)
-   (border-mode-line-inactive nil)
-   (builtin "#82aaff")
-   (comment "#676E95")
-   (constant "#f78c6c")
- (docstring "#8d92af")
- (fg-active fg-main)
- (fg-completion white)
- (fg-heading-0 "#82aaff")
- (fg-heading-1 "#82aaff")
- (fg-heading-2 "#c792ea")
- (fg-heading-3 "#bb80b3")
- (fg-heading-4 "#a1bfff")
- (fg-line-number-active fg-main)
- (fg-line-number-inactive "gray50")
- (fg-main "#EEFFFF")
- (fg-mode-line-active "#A6Accd")
- (fg-mode-line-inactive "#676E95")
- (fg-prompt "#c792ea")
- (fg-prose-block-delimiter "#676E95")
- (fg-prose-verbatim "#c3e88d")
- (fg-region white)
- (fnname "#82aaff")
- (fringe "#292D3E")
- (keyword "#89DDFF")
- (string "#c3e88d")
- (type "#c792ea")
- (variable "#c792ea"))
- ;; (border-mode-line-active "#676E95")
- ;; (border-mode-line-inactive bg-dim)
- )
 
-(load-theme 'rebecca t)
-;(load-theme 'modus-vivendi-tinted)
 
-;; Markdown
-(use-package markdown-mode
-  :ensure t
-  :mode ("\\.md\\'" "\\.markdown\\'")
-  :init
-  (setq markdown-command "multimarkdown"))
 
-(add-hook 'markdown-mode-hook 'orgtbl-mode)
-
-;; Scratch Message
-(setq initial-scratch-message ";;From *scratch*")
-(add-to-list 'default-frame-alist '(fullscreen . maximized))
-
-;; YAML
-(use-package yaml-mode
-  :ensure t
-  :mode ("\\.ya?ml\\'" . yaml-mode))
-
-;; Ansible
-(use-package ansible
-  :ensure t
-  :hook (yaml-mode . ansible))
-
-; Ansible Docs
-(use-package ansible-doc
-  :ensure t
-  :hook (yaml-mode . ansible-doc-mode))
-
-;; Start Emacs in full screen 
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(all-the-icons ansible ansible-doc company-ansible dashboard flycheck
-		   jinja2-mode magit markdown-mode nov rebecca-theme
-		   treemacs-nerd-icons vterm yaml-mode)))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
-
-;; Jinja2
-(use-package jinja2-mode
-  :ensure t
-  :mode ("\\.j2\\'" . jinja2-mode))
-
-;; Linter
-(use-package flycheck
-  :ensure t
-  :init (global-flycheck-mode))
-
-;; Ansible-Lint
-(flycheck-define-checker ansible-lint
-  "A checker using ansible-lint."
-  :command ("ansible-lint" source-inplace)
-  :error-patterns
-  ((error line-start (file-name) ":" line ": " (message) line-end))
-  :modes (yaml-mode))
-
-(add-to-list 'flycheck-checkers 'ansible-lint)
-
-;; Autocompletion
-(use-package company-ansible
-  :ensure t
-  :after company
-  :hook (yaml-mode . company-ansible-lint))
-
-;; Snippets
-;; (use-package ansible-snippets
-;;   :ensure t
-;;  :after yasnippet)
-  
-;; Magit
-(use-package magit
-  :ensure t
-  :bind (("C-x g" . magit-status)))
-
-;; Epub's
-(use-package nov
-  :ensure t
-  :init
-  (add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode)))
-
-;; Fast swtichting between windows and frames
-(use-package ace-window
-  :ensure t
-  :bind ("M-o" . ace-window))
-
-;; Delete with Backspace and DEL
-(delete-selection-mode 1)
-
-;; avy GoToChar
-(use-package avy
-  :ensure t
-  :bind
-  (("C-:" . avy-goto-char)
-   ("C-'" . avy-goto-char-2)
-   ("M-g g" . avy-goto-line)))
+(provide 'init)
+;;; init.el ends here
