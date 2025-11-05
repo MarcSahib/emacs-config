@@ -28,7 +28,7 @@
 ;; ==============================================================
 ;; No Menu- And Scroll-Bars
 ;; ==============================================================
-(menu-bar-mode -1)
+(menu-bar-mode 1)
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
 
@@ -42,13 +42,16 @@
 (load-theme 'deeper-blue t)
 
 (set-face-attribute 'mode-line nil
-                    :foreground "white"
-                    :background "darkblue"
+                    :foreground "gray60"
+                    :background "gray20"
                     :box nil)
 (set-face-attribute 'mode-line-inactive nil
-                    :foreground "grey"
-                    :background "darkblue"
+                    :foreground "gray60"
+                    :background "gray10"
                     :box nil)
+(set-face-attribute 'mode-line-buffer-id nil
+		    :foreground "gray80")
+
 (add-to-list 'default-frame-alist '(undecorated . t))
 
 
@@ -175,25 +178,34 @@
   (setq dashboard-set-file-icons nil)
 )
 
+;; -----------------------------------------
+;; Windows Clipboard Integration via wl-copy
+;; -----------------------------------------
+(when (executable-find "wl-copy")
+  (setq interprogram-cut-function
+        (lambda (text &optional push)
+          (let ((process-connection-type nil))
+            (let ((proc (start-process "wl-copy" "*Messages*" "wl-copy" "-n")))
+              (process-send-string proc text)
+              (process-send-eof proc)))))
+
+  (setq interprogram-paste-function
+        (lambda ()
+          (with-temp-buffer
+            (call-process "wl-paste" nil t)
+            (buffer-string)))))
+
 ;; ==============================================================
-;; Kill-Ring -> Windows Clipboard
+;; Allgemeine UTF-8 Einstellungen
 ;; ==============================================================
-(defun copy-to-windows-clipboard (text)
-  "Copy TEXT to Windows clipboard via clip.exe."
-  (let ((process-connection-type nil))
-    (let ((proc (start-process "clip" nil "clip.exe")))
-      (process-send-string proc text)
-      (process-send-eof proc))))
 
-(defun my/copy-region-to-windows-clipboard-advice (&rest args)
-  "After kill-ring-save, copy region to Windows clipboard."
-  (let ((beg (nth 0 args))
-        (end (nth 1 args)))
-    (when (and beg end (use-region-p))
-      (copy-to-windows-clipboard (buffer-substring beg end)))))
-
-(advice-add 'kill-ring-save :after #'my/copy-region-to-windows-clipboard-advice)
-
+;; UTF-8 bevorzugen, Emacs-intern und für Clipboard
+(prefer-coding-system 'utf-8)
+(set-language-environment "UTF-8")
+(set-selection-coding-system 'utf-8)
+(set-clipboard-coding-system 'utf-8)
+(setq select-enable-clipboard t)
+(setq select-enable-primary t)
 
 ;; Mit Shift + TAB nach links
 (defun my-markdown-shifttab-indent-left ()
@@ -222,17 +234,6 @@
 
 (with-eval-after-load 'markdown-mode
   (define-key markdown-mode-map (kbd "<backtab>") #'my-markdown-shifttab-smart))
-
-
-;; Treemacs
-(use-package treemacs
-  :ensure t)
-
-(use-package treemacs-nerd-icons
-  :after treemacs
-  :ensure t
-  :config
-  (treemacs-load-theme "nerd-icons"))
 
 
 
