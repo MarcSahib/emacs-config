@@ -76,21 +76,33 @@
 ;; ==============================================================
 ;; LSP
 ;; ==============================================================
-(use-package lsp-mode 
-  :commands lsp
-  :hook ((yaml-mode . lsp)
-         (json-mode . lsp)
-         (python-mode . lsp))  
-  :config
-  ;; Ansible LSP
-  (lsp-register-client
-   (make-lsp-client
-    :new-connection (lsp-stdio-connection '("ansible-language-server" "--stdio"))
-    :major-modes '(yaml-mode)
-    :server-id 'ansible-ls))
-  (setq lsp-log-io nil))
+(use-package lsp-mode
+  :init
+  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+  (setq lsp-keymap-prefix "C-c l")
+  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+         (python-mode . lsp))
+         ;; if you want which-key integration
+         ;(lsp-mode . lsp-enable-which-key-integration)
+  :commands lsp)
 
-
+;; Custom LSP Command
+; register server
+(require 'lsp-mode)
+;; Sag lsp-mode, dass pylsp in Docker läuft:
+(lsp-register-client
+ (make-lsp-client
+  :new-connection (lsp-stdio-connection
+                   (lambda ()
+                     ;; Liste von Strings, kein einziger String!
+                     (list "podman" "run" "--rm" "-i"
+                           "-v" (concat (expand-file-name default-directory) ":/workspace")
+                           "-w" "/workspace"
+                           "docker.io/lspcontainers/python-lsp-server:1.12.0"
+                           "pylsp")))
+  :major-modes '(python-mode)
+  :priority -1
+  :server-id 'pylsp-docker))
 
 ;; ==============================================================
 ;; YAML / Ansible
@@ -181,19 +193,19 @@
 ;; -----------------------------------------
 ;; Windows Clipboard Integration via wl-copy
 ;; -----------------------------------------
-(when (executable-find "wl-copy")
-  (setq interprogram-cut-function
-        (lambda (text &optional push)
-          (let ((process-connection-type nil))
-            (let ((proc (start-process "wl-copy" "*Messages*" "wl-copy" "-n")))
-              (process-send-string proc text)
-              (process-send-eof proc)))))
-
-  (setq interprogram-paste-function
-        (lambda ()
-          (with-temp-buffer
-            (call-process "wl-paste" nil t)
-            (buffer-string)))))
+;(when (executable-find "wl-copy")
+;  (setq interprogram-cut-function
+;        (lambda (text &optional push)
+;          (let ((process-connection-type nil))
+;            (let ((proc (start-process "wl-copy" "*Messages*" "wl-copy" "-n")))
+;              (process-send-string proc text)
+;              (process-send-eof proc)))))
+;
+;  (setq interprogram-paste-function
+;        (lambda ()
+;          (with-temp-buffer
+;            (call-process "wl-paste" nil t)
+;            (buffer-string)))))
 
 ;; ==============================================================
 ;; Allgemeine UTF-8 Einstellungen
@@ -235,7 +247,15 @@
 (with-eval-after-load 'markdown-mode
   (define-key markdown-mode-map (kbd "<backtab>") #'my-markdown-shifttab-smart))
 
-
+;; ==============================================================
+;; avy GoToChar
+;; ==============================================================
+(use-package avy
+  :ensure t
+  :bind
+  (("C-:" . avy-goto-char)
+   ("C-'" . avy-goto-char-2)
+   ("M-g g" . avy-goto-line)))
 
 
 
